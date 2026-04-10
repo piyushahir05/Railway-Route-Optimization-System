@@ -1,11 +1,13 @@
-"""Data model definitions representing station records in persistence."""
+"""Dataclass models for station data and route connection details."""
 
-from pydantic import BaseModel, Field
+from dataclasses import dataclass
 
 
-class StationModel(BaseModel):
-    """Internal station model used for database-level representation."""
+@dataclass
+class StationModel:
+    """Represents a station with coordinates and connected destination metadata."""
 
-    code: str = Field(..., min_length=2, max_length=10)
-    name: str = Field(..., min_length=1)
-    city: str = Field(..., min_length=1)
+    station_name: str
+    latitude: float
+    longitude: float
+    connections: list[dict]
