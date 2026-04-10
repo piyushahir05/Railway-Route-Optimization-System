@@ -5,7 +5,7 @@ import heapq
 
 def shortest_path(
     graph: dict[str, dict[str, int]], source: str, destination: str
-) -> tuple[int, list[str]]:
+) -> tuple[float, list[str]]:
     """Compute shortest path and total distance using Dijkstra's algorithm."""
     if source not in graph or destination not in graph:
         return float("inf"), []
