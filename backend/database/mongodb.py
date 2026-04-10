@@ -10,12 +10,13 @@ from pymongo.database import Database
 load_dotenv()
 logger = logging.getLogger(__name__)
 
+MONGODB_URI = os.getenv("MONGODB_URI")
+
 try:
-    mongodb_uri = os.getenv("MONGODB_URI")
-    if not mongodb_uri:
+    if not MONGODB_URI:
         raise RuntimeError("MONGODB_URI environment variable is not set.")
 
-    client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
+    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
     try:
         client.admin.command("ping")
     except Exception as exc:
@@ -24,12 +25,11 @@ try:
         ) from exc
 
     db = client["railway_network"]
+    stations_collection = db["stations"]
+    routes_collection = db["routes"]
 except Exception:
     logger.exception("Failed to initialize MongoDB connection.")
     raise
-
-stations_collection = db["stations"]
-routes_collection = db["routes"]
 
 
 def get_db() -> Database:
