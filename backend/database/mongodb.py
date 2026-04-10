@@ -11,6 +11,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 MONGODB_URI = os.getenv("MONGODB_URI")
+client: MongoClient | None = None
+db: Database | None = None
 
 try:
     if not MONGODB_URI:
@@ -27,11 +29,16 @@ try:
     db = client["railway_network"]
     stations_collection = db["stations"]
     routes_collection = db["routes"]
-except Exception:
+except RuntimeError:
     logger.exception("Failed to initialize MongoDB connection.")
     raise
+except Exception as exc:
+    logger.exception("Failed to initialize MongoDB connection.")
+    raise RuntimeError("Failed to initialize MongoDB connection.") from exc
 
 
 def get_db() -> Database:
     """Return the active MongoDB database instance."""
+    if db is None:
+        raise RuntimeError("MongoDB database is not initialized.")
     return db
