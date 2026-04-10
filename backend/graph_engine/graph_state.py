@@ -14,14 +14,10 @@ def load_graph() -> None:
     """Rebuild the graph from MongoDB and replace the in-memory graph atomically."""
     global _graph
     with _lock:
-        closed_stations = list(_closed_stations)
-        use_congestion = _use_congestion
-
-    new_graph = build_graph(
-        closed_stations=closed_stations,
-        use_congestion=use_congestion,
-    )
-    with _lock:
+        new_graph = build_graph(
+            closed_stations=_closed_stations,
+            use_congestion=_use_congestion,
+        )
         _graph = new_graph
 
 
@@ -57,6 +53,6 @@ def get_graph_state() -> dict[str, object]:
     with _lock:
         return {
             "use_congestion": _use_congestion,
-            "closed_stations": _closed_stations,
+            "closed_stations": list(_closed_stations),
             "total_nodes": len(_graph),
         }
