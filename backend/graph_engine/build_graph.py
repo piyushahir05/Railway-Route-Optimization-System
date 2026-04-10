@@ -3,6 +3,7 @@
 import logging
 
 from database.mongodb import db
+from pymongo.errors import PyMongoError
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,9 @@ def build_graph(closed_stations: list[str] = None, use_congestion: bool = False)
     Returns:
         A nested adjacency dictionary keyed as graph[source][destination], where each
         edge stores distance, travel time, ticket cost, congestion factor, and adjusted
-        values for each metric. Returns an empty dictionary if station data cannot be
-        fetched.
+        values for each metric. Referenced destination stations are initialized in the
+        graph even before their own station document is processed. Returns an empty
+        dictionary if station data cannot be fetched.
     """
     if closed_stations is None:
         closed_stations = []
@@ -29,7 +31,7 @@ def build_graph(closed_stations: list[str] = None, use_congestion: bool = False)
 
     try:
         station_docs = list(db["stations"].find({}, {"_id": 0}))
-    except Exception:
+    except PyMongoError:
         logger.exception("Failed to fetch stations while building graph.")
         return {}
 
@@ -87,7 +89,7 @@ def get_station_coordinates() -> dict:
         station_docs = list(
             db["stations"].find({}, {"_id": 0, "station_name": 1, "name": 1, "latitude": 1, "longitude": 1})
         )
-    except Exception:
+    except PyMongoError:
         logger.exception("Failed to fetch stations while building coordinate lookup.")
         return {}
 
