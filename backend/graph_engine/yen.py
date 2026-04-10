@@ -16,4 +16,4 @@ def k_shortest_paths(
             "path": path,
             "distance_km": distance,
         }
-    ][: max(k, 0)]
+    ][:k]

@@ -1,6 +1,6 @@
 """Endpoints exposing alternative route options for a source-destination query."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from graph_engine.graph_state import get_graph
 from graph_engine.yen import k_shortest_paths
@@ -18,5 +18,14 @@ def get_alternative_routes(
     graph = get_graph()
     source = source.upper()
     destination = destination.upper()
+
+    if source not in graph:
+        raise HTTPException(status_code=404, detail=f"Source station '{source}' not found")
+    if destination not in graph:
+        raise HTTPException(status_code=404, detail=f"Destination station '{destination}' not found")
+
     alternatives = k_shortest_paths(graph, source, destination, k)
+    if not alternatives:
+        raise HTTPException(status_code=404, detail="No alternative routes found between the selected stations")
+
     return {"source": source, "destination": destination, "alternatives": alternatives}
