@@ -26,6 +26,6 @@ def get_alternative_routes(
 
     alternatives = k_shortest_paths(graph, source, destination, k)
     if not alternatives:
-        raise HTTPException(status_code=404, detail="No alternative routes found between the selected stations")
+        raise HTTPException(status_code=404, detail="No route found between the selected stations")
 
     return {"source": source, "destination": destination, "alternatives": alternatives}

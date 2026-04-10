@@ -7,7 +7,7 @@ from database.mongodb import stations_collection
 router = APIRouter(prefix="/stations", tags=["stations"])
 
 
-@router.get("")
+@router.get("/")
 def list_stations() -> dict[str, object]:
     """Return all known stations from MongoDB."""
     stations = list(stations_collection.find({}, {"_id": 0}))

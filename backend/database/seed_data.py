@@ -5,7 +5,7 @@ from database.mongodb import routes_collection, stations_collection
 
 def seed_if_empty() -> None:
     """Insert basic seed data when collections are empty."""
-    if stations_collection.count_documents({}) == 0:
+    if stations_collection.estimated_document_count() == 0:
         stations_collection.insert_many(
             [
                 {"code": "NDLS", "name": "New Delhi", "city": "Delhi"},
@@ -13,7 +13,7 @@ def seed_if_empty() -> None:
             ]
         )
 
-    if routes_collection.count_documents({}) == 0:
+    if routes_collection.estimated_document_count() == 0:
         routes_collection.insert_many(
             [
                 {"source": "NDLS", "destination": "BCT", "distance_km": 1384},
