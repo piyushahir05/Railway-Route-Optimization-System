@@ -3,6 +3,7 @@
 # python -m database.seed_data   (from backend/ directory)
 
 from database.mongodb import db
+from pymongo.errors import PyMongoError
 from schemas.station_schema import StationSchema
 
 
@@ -80,7 +81,10 @@ def main() -> None:
         validated_docs.append(validated_station.model_dump())
         print(f"Validated station: {validated_station.name}")
 
-    stations_collection.insert_many(validated_docs)
+    try:
+        stations_collection.insert_many(validated_docs)
+    except PyMongoError as exc:
+        raise RuntimeError(f"Failed to insert station seed data into MongoDB: {exc}") from exc
     print(f"Inserted {len(validated_docs)} stations into 'stations' collection.")
 
 
