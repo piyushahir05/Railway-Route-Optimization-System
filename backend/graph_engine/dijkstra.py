@@ -31,7 +31,7 @@ def dijkstra(graph: Graph, start: str, end: str, weight_type: str) -> dict[str, 
         graph: Adjacency dictionary from graph builder.
         start: Source station name.
         end: Destination station name.
-        weight_type: One of distance, travel_time, ticket_cost.
+        weight_type: One of distance, travel_time, ticket_cost (see VALID_WEIGHT_TYPES).
 
     Returns:
         A result dictionary with route path, total cost, selected weight type,
@@ -59,8 +59,12 @@ def dijkstra(graph: Graph, start: str, end: str, weight_type: str) -> dict[str, 
     if start == end:
         return {"found": True, "path": [start], "cost": 0.0, "weight_type": weight_type}
 
-    costs: dict[str, float] = {node: float("inf") for node in graph}
-    previous: dict[str, Optional[str]] = {node: None for node in graph}
+    nodes: set[str] = set(graph)
+    for adjacency in graph.values():
+        nodes.update(adjacency.keys())
+
+    costs: dict[str, float] = {node: float("inf") for node in nodes}
+    previous: dict[str, Optional[str]] = {node: None for node in nodes}
     visited: set[str] = set()
     costs[start] = 0.0
 
@@ -85,7 +89,7 @@ def dijkstra(graph: Graph, start: str, end: str, weight_type: str) -> dict[str, 
                 continue
 
             tentative_cost = current_cost + weight
-            if tentative_cost < costs.get(neighbor, float("inf")):
+            if tentative_cost < costs[neighbor]:
                 costs[neighbor] = tentative_cost
                 previous[neighbor] = node
                 heapq.heappush(priority_queue, (tentative_cost, neighbor))
@@ -99,19 +103,11 @@ def dijkstra(graph: Graph, start: str, end: str, weight_type: str) -> dict[str, 
         }
 
     path: list[str] = []
-    node: Optional[str] = end
-    while node is not None:
-        path.append(node)
-        node = previous.get(node)
+    current_node: Optional[str] = end
+    while current_node is not None:
+        path.append(current_node)
+        current_node = previous.get(current_node)
     path.reverse()
-
-    if not path or path[0] != start:
-        return {
-            "found": False,
-            "path": [],
-            "cost": 0,
-            "error": f"No path between {start} and {end}",
-        }
 
     return {
         "path": path,
@@ -121,9 +117,7 @@ def dijkstra(graph: Graph, start: str, end: str, weight_type: str) -> dict[str, 
     }
 
 
-def shortest_path(
-    graph: dict[str, dict[str, int]], source: str, destination: str
-) -> tuple[float, list[str]]:
+def shortest_path(graph: Graph, source: str, destination: str) -> tuple[float, list[str]]:
     """
     Backward-compatible shortest-path helper that returns distance and path tuple.
 
