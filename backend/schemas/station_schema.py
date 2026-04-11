@@ -1,4 +1,6 @@
-"""Pydantic schemas for station entities and connection updates."""
+"""
+station_schema.py — Pydantic v2 schemas for station validation.
+"""
 
 from typing import Optional
 
@@ -13,16 +15,6 @@ class ConnectionSchema(BaseModel):
     travel_time: float = Field(gt=0, description="Travel time in minutes")
     ticket_cost: float = Field(gt=0, description="Ticket cost in INR")
     congestion_factor: float = Field(default=1.0, ge=0.5, le=3.0)
-
-
-class ConnectionSchema(BaseModel):
-    """Schema for a directed edge from one station to another."""
-
-    to: str = Field(..., min_length=1)
-    distance: int = Field(..., gt=0)
-    time: int = Field(..., gt=0)
-    cost: int = Field(..., gt=0)
-    congestion: float = Field(..., gt=0)
 
 
 class StationSchema(BaseModel):
@@ -44,9 +36,4 @@ class StationUpdateSchema(BaseModel):
     ticket_cost: Optional[float] = Field(default=None, gt=0)
     congestion_factor: Optional[float] = Field(default=None, ge=0.5, le=3.0)
 
-    code: str | None = Field(default=None, min_length=2, max_length=10)
-    name: str = Field(..., min_length=1)
-    city: str | None = Field(default=None, min_length=1)
-    latitude: float = Field(..., ge=-90, le=90)
-    longitude: float = Field(..., ge=-180, le=180)
-    connections: list[ConnectionSchema] = Field(default_factory=list)
+    model_config = ConfigDict(extra="forbid")

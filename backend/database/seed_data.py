@@ -8,6 +8,7 @@ from schemas.station_schema import StationSchema
 
 
 def _network_data() -> tuple[dict[str, tuple[float, float]], list[tuple[str, str, int, int, int, float]]]:
+    """Return station coordinates and edge definitions for the seed network."""
     stations = {
         "Mumbai": (19.0760, 72.8777),
         "Pune": (18.5204, 73.8567),
@@ -19,6 +20,7 @@ def _network_data() -> tuple[dict[str, tuple[float, float]], list[tuple[str, str
         "Aurangabad": (19.8762, 75.3433),
     }
 
+    # (source, destination, distance, travel_time, ticket_cost, congestion_factor)
     edges = [
         ("Mumbai", "Pune", 149, 180, 250, 1.2),
         ("Mumbai", "Nashik", 167, 210, 280, 1.0),
@@ -35,10 +37,11 @@ def _network_data() -> tuple[dict[str, tuple[float, float]], list[tuple[str, str
 
 
 def _build_station_documents() -> list[dict]:
+    """Build station documents with canonical field names matching StationSchema."""
     stations, edges = _network_data()
     station_docs: dict[str, dict] = {
         name: {
-            "name": name,
+            "station_name": name,
             "latitude": coordinates[0],
             "longitude": coordinates[1],
             "connections": [],
@@ -46,20 +49,20 @@ def _build_station_documents() -> list[dict]:
         for name, coordinates in stations.items()
     }
 
-    for source, destination, distance, time, cost, congestion in edges:
+    for source, destination, distance, travel_time, ticket_cost, congestion_factor in edges:
         forward = {
-            "to": destination,
+            "destination": destination,
             "distance": distance,
-            "time": time,
-            "cost": cost,
-            "congestion": congestion,
+            "travel_time": travel_time,
+            "ticket_cost": ticket_cost,
+            "congestion_factor": congestion_factor,
         }
         reverse = {
-            "to": source,
+            "destination": source,
             "distance": distance,
-            "time": time,
-            "cost": cost,
-            "congestion": congestion,
+            "travel_time": travel_time,
+            "ticket_cost": ticket_cost,
+            "congestion_factor": congestion_factor,
         }
         station_docs[source]["connections"].append(forward)
         station_docs[destination]["connections"].append(reverse)
@@ -79,7 +82,7 @@ def main() -> None:
     for station in station_docs:
         validated_station = StationSchema.model_validate(station)
         validated_docs.append(validated_station.model_dump())
-        print(f"Validated station: {validated_station.name}")
+        print(f"Validated station: {validated_station.station_name}")
 
     try:
         stations_collection.insert_many(validated_docs)
@@ -93,8 +96,8 @@ def verify() -> None:
     stations_collection = db["stations"]
     count = stations_collection.count_documents({})
     print(f"Verification: {count} station documents found.")
-    for station in stations_collection.find({}, {"_id": 0, "name": 1}).sort("name", 1):
-        print(f"- {station['name']}")
+    for station in stations_collection.find({}, {"_id": 0, "station_name": 1}).sort("station_name", 1):
+        print(f"- {station['station_name']}")
 
 
 if __name__ == "__main__":
