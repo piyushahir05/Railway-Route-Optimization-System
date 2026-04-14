@@ -1,44 +1,25 @@
-"""MongoDB connection module for the Railway Route Optimization backend."""
+"""MongoDB connection module for the railway network database."""
 
-import logging
+from __future__ import annotations
+
 import os
 
 from dotenv import load_dotenv
 from pymongo import MongoClient
-from pymongo.database import Database
 
 load_dotenv()
-logger = logging.getLogger(__name__)
 
-MONGODB_URI = os.getenv("MONGODB_URI")
-client: MongoClient | None = None
-db: Database | None = None
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 
 try:
-    if not MONGODB_URI:
-        raise RuntimeError("MONGODB_URI environment variable is not set.")
-
     client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-    try:
-        client.admin.command("ping")
-    except Exception as exc:
-        raise RuntimeError(
-            "Failed to connect to MongoDB: ping check failed during startup."
-        ) from exc
-
+    client.admin.command("ping")
     db = client["railway_network"]
-    stations_collection = db["stations"]
-    routes_collection = db["routes"]
-except RuntimeError:
-    logger.exception("Failed to initialize MongoDB connection.")
-    raise
 except Exception as exc:
-    logger.exception("Failed to initialize MongoDB connection.")
-    raise RuntimeError("Failed to initialize MongoDB connection.") from exc
+    print(f"MongoDB connection failed: {exc}")
+    raise RuntimeError("Failed to connect to MongoDB. Check MONGODB_URI and server status.") from exc
 
 
-def get_db() -> Database:
-    """Return the active MongoDB database instance."""
-    if db is None:
-        raise RuntimeError("MongoDB database is not initialized.")
+def get_db():
+    """Return the MongoDB database instance."""
     return db

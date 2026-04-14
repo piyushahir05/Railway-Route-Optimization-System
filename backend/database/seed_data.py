@@ -1,26 +1,29 @@
-"""Seed sample Indian railway network station data into MongoDB."""
+"""Seed script for inserting sample Indian railway stations into MongoDB."""
 
-# python -m database.seed_data   (from backend/ directory)
+# Run from backend/ directory:
+#   python -m database.seed_data
+# Requires MONGODB_URI set in .env
+
+from __future__ import annotations
+
+from pydantic import ValidationError
 
 from database.mongodb import db
-from pymongo.errors import PyMongoError
 from schemas.station_schema import StationSchema
 
 
-def _network_data() -> tuple[dict[str, tuple[float, float]], list[tuple[str, str, int, int, int, float]]]:
-    """Return station coordinates and edge definitions for the seed network."""
+def build_station_data() -> list[dict]:
+    """Return the station seed payload with bidirectional connections."""
     stations = {
-        "Mumbai": (19.0760, 72.8777),
-        "Pune": (18.5204, 73.8567),
-        "Nashik": (19.9975, 73.7898),
-        "Surat": (21.1702, 72.8311),
-        "Ahmedabad": (23.0225, 72.5714),
-        "Vadodara": (22.3072, 73.1812),
-        "Nagpur": (21.1458, 79.0882),
-        "Aurangabad": (19.8762, 75.3433),
+        "Mumbai": {"latitude": 19.0760, "longitude": 72.8777},
+        "Pune": {"latitude": 18.5204, "longitude": 73.8567},
+        "Nashik": {"latitude": 19.9975, "longitude": 73.7898},
+        "Surat": {"latitude": 21.1702, "longitude": 72.8311},
+        "Ahmedabad": {"latitude": 23.0225, "longitude": 72.5714},
+        "Vadodara": {"latitude": 22.3072, "longitude": 73.1812},
+        "Nagpur": {"latitude": 21.1458, "longitude": 79.0882},
+        "Aurangabad": {"latitude": 19.8762, "longitude": 75.3433},
     }
-
-    # (source, destination, distance, travel_time, ticket_cost, congestion_factor)
     edges = [
         ("Mumbai", "Pune", 149, 180, 250, 1.2),
         ("Mumbai", "Nashik", 167, 210, 280, 1.0),
@@ -33,71 +36,59 @@ def _network_data() -> tuple[dict[str, tuple[float, float]], list[tuple[str, str
         ("Aurangabad", "Nagpur", 230, 270, 290, 0.9),
         ("Nagpur", "Vadodara", 576, 540, 650, 1.0),
     ]
-    return stations, edges
 
-
-def _build_station_documents() -> list[dict]:
-    """Build station documents with canonical field names matching StationSchema."""
-    stations, edges = _network_data()
-    station_docs: dict[str, dict] = {
-        name: {
-            "station_name": name,
-            "latitude": coordinates[0],
-            "longitude": coordinates[1],
-            "connections": [],
-        }
-        for name, coordinates in stations.items()
+    documents = {
+        name: {"station_name": name, **coords, "connections": []}
+        for name, coords in stations.items()
     }
-
-    for source, destination, distance, travel_time, ticket_cost, congestion_factor in edges:
+    for src, dst, distance, travel_time, ticket_cost, congestion_factor in edges:
         forward = {
-            "destination": destination,
+            "destination": dst,
             "distance": distance,
             "travel_time": travel_time,
             "ticket_cost": ticket_cost,
             "congestion_factor": congestion_factor,
         }
-        reverse = {
-            "destination": source,
-            "distance": distance,
-            "travel_time": travel_time,
-            "ticket_cost": ticket_cost,
-            "congestion_factor": congestion_factor,
-        }
-        station_docs[source]["connections"].append(forward)
-        station_docs[destination]["connections"].append(reverse)
-
-    return list(station_docs.values())
+        reverse = {**forward, "destination": src}
+        documents[src]["connections"].append(forward)
+        documents[dst]["connections"].append(reverse)
+    return list(documents.values())
 
 
 def main() -> None:
-    """Drop, validate, and insert station seed data."""
-    stations_collection = db["stations"]
-    stations_collection.drop()
-    print("Dropped existing 'stations' collection.")
+    """Drop and seed stations collection with validated sample records."""
+    stations_col = db["stations"]
+    count = stations_col.count_documents({})
+    if count > 0:
+        confirm = input(f"{count} stations already exist. Re-seed? (yes/no): ")
+        if confirm.lower() != "yes":
+            print("Seed cancelled.")
+            return
 
-    station_docs = _build_station_documents()
-    validated_docs: list[dict] = []
+    payload = build_station_data()
+    validated_payload = []
+    for station in payload:
+        try:
+            validated = StationSchema.model_validate(station)
+            validated_payload.append(validated.model_dump())
+        except ValidationError as exc:
+            print(f"Validation failed for {station.get('station_name', 'unknown')}: {exc}")
+            return
 
-    for station in station_docs:
-        validated_station = StationSchema.model_validate(station)
-        validated_docs.append(validated_station.model_dump())
-        print(f"Validated station: {validated_station.station_name}")
+    stations_col.drop()
+    stations_col.insert_many(validated_payload)
 
-    try:
-        stations_collection.insert_many(validated_docs)
-    except PyMongoError as exc:
-        raise RuntimeError(f"Failed to insert station seed data into MongoDB: {exc}") from exc
-    print(f"Inserted {len(validated_docs)} stations into 'stations' collection.")
+    for station in validated_payload:
+        print(f"Inserted: {station['station_name']}")
 
 
 def verify() -> None:
-    """Print count and station names currently in the collection."""
-    stations_collection = db["stations"]
-    count = stations_collection.count_documents({})
-    print(f"Verification: {count} station documents found.")
-    for station in stations_collection.find({}, {"_id": 0, "station_name": 1}).sort("station_name", 1):
-        print(f"- {station['station_name']}")
+    """Print inserted document count and station names for quick verification."""
+    stations_col = db["stations"]
+    count = stations_col.count_documents({})
+    print(f"Total stations in collection: {count}")
+    for doc in stations_col.find({}, {"station_name": 1, "_id": 0}).sort("station_name", 1):
+        print(f"- {doc['station_name']}")
 
 
 if __name__ == "__main__":

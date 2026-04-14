@@ -1,72 +1,72 @@
-"""
-admin_api.py — Admin endpoints for station management and simulation control.
-TODO: Add API key or JWT authentication before deploying to production.
-All endpoints here are currently unprotected.
-"""
+"""Administrative endpoints for station CRUD and simulation controls."""
+
+from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from database.mongodb import db
-from graph_engine.graph_state import (
-    get_graph,
-    reload_graph,
-    set_closed_stations,
-    set_congestion,
-)
+from graph_engine.graph_state import get_graph, reload_graph, set_closed_stations, set_congestion
 from schemas.station_schema import StationSchema, StationUpdateSchema
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+admin_router = APIRouter(prefix="/admin", tags=["Admin"])
+
+# TODO: Add API key or JWT authentication before deploying to production.
 
 
-@router.post("/station/add")
-def add_station(body: StationSchema):
-    """Add a new station to MongoDB and reload the in-memory graph."""
-    if db["stations"].find_one({"station_name": body.station_name}):
-        raise HTTPException(
-            status_code=409, detail=f"Station '{body.station_name}' already exists"
-        )
+class CongestionToggle(BaseModel):
+    """Request body schema for congestion toggle."""
+
+    enabled: bool
+
+
+class StationCloseBody(BaseModel):
+    """Request body schema for temporary station closures."""
+
+    stations: list[str]
+
+
+@admin_router.post("/station/add")
+async def add_station(body: StationSchema):
+    """Create a new station document and refresh the in-memory graph."""
+    existing = db["stations"].find_one({"station_name": body.station_name})
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Station already exists: {body.station_name}")
     db["stations"].insert_one(body.model_dump())
-    reload_graph()  # MUST reload — do not skip
+    reload_graph()
     return {"message": f"Station {body.station_name} added", "station": body.station_name}
 
 
-@router.delete("/station/remove")
-def remove_station(station_name: str):
-    """Remove a station from MongoDB, clean up references, and reload the graph."""
-    if not db["stations"].find_one({"station_name": station_name}):
-        raise HTTPException(
-            status_code=404, detail=f"Station '{station_name}' not found"
-        )
+@admin_router.delete("/station/remove")
+async def remove_station(station_name: str):
+    """Delete a station and remove all inbound references to it."""
+    existing = db["stations"].find_one({"station_name": station_name})
+    if not existing:
+        raise HTTPException(status_code=404, detail=f"Station not found: {station_name}")
+
     db["stations"].delete_one({"station_name": station_name})
-    # Remove this station from all other stations' connections arrays
     db["stations"].update_many(
         {"connections.destination": station_name},
         {"$pull": {"connections": {"destination": station_name}}},
     )
-    reload_graph()  # MUST reload — do not skip
+    reload_graph()
     return {"message": f"Station {station_name} removed"}
 
 
-@router.patch("/connection/update")
-def update_connection(body: StationUpdateSchema):
-    """Update edge metrics for an existing connection between two stations."""
-    station = db["stations"].find_one({"station_name": body.source})
-    if not station:
-        raise HTTPException(
-            status_code=404, detail=f"Source station '{body.source}' not found"
-        )
+@admin_router.patch("/connection/update")
+async def update_connection(body: StationUpdateSchema):
+    """Patch one source->destination connection with provided non-empty fields."""
+    source_station = db["stations"].find_one({"station_name": body.source})
+    if not source_station:
+        raise HTTPException(status_code=404, detail=f"Source station not found: {body.source}")
 
-    connection_exists = any(
-        c["destination"] == body.destination for c in station.get("connections", [])
+    target_connection = db["stations"].find_one(
+        {"station_name": body.source, "connections.destination": body.destination}
     )
-    if not connection_exists:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Connection from '{body.source}' to '{body.destination}' not found",
-        )
+    if not target_connection:
+        raise HTTPException(status_code=404, detail=f"Connection not found: {body.source} -> {body.destination}")
 
-    update_fields = {}
+    update_fields: dict = {}
     if body.distance is not None:
         update_fields["connections.$.distance"] = body.distance
     if body.travel_time is not None:
@@ -77,45 +77,29 @@ def update_connection(body: StationUpdateSchema):
         update_fields["connections.$.congestion_factor"] = body.congestion_factor
 
     if not update_fields:
-        raise HTTPException(status_code=400, detail="No fields provided to update")
+        raise HTTPException(status_code=400, detail="No fields to update")
 
     db["stations"].update_one(
         {"station_name": body.source, "connections.destination": body.destination},
         {"$set": update_fields},
     )
-    reload_graph()  # MUST reload — do not skip
+    reload_graph()
     return {"message": "Connection updated"}
 
 
-class CongestionToggle(BaseModel):
-    """Request body for toggling congestion simulation."""
-
-    enabled: bool
-
-
-@router.post("/simulation/congestion")
-def toggle_congestion(body: CongestionToggle):
-    """Toggle congestion factor weighting in the in-memory graph."""
+@admin_router.post("/simulation/congestion")
+async def toggle_congestion(body: CongestionToggle):
+    """Enable or disable congestion-aware weighting in routing."""
     set_congestion(body.enabled)
     return {"message": "Congestion updated", "enabled": body.enabled}
 
 
-class StationCloseBody(BaseModel):
-    """Request body for closing/reopening stations."""
-
-    stations: list[str]
-
-
-@router.post("/simulation/close")
-def close_stations(body: StationCloseBody):
-    """Set which stations are closed and reload the graph without those nodes."""
-    graph = get_graph()
-    # Validate all station names exist in the current graph before closing
-    invalid = [s for s in body.stations if s not in graph]
+@admin_router.post("/simulation/close")
+async def close_stations(body: StationCloseBody):
+    """Set closed stations for simulation after validating station names."""
+    available = set(get_graph().keys())
+    invalid = [name for name in body.stations if name not in available]
     if invalid:
-        raise HTTPException(
-            status_code=400,
-            detail=f"The following stations do not exist in the graph: {invalid}",
-        )
+        raise HTTPException(status_code=400, detail=f"Invalid stations: {invalid}")
     set_closed_stations(body.stations)
     return {"message": "Closed stations updated", "closed": body.stations}

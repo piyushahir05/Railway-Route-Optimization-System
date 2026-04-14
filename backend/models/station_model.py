@@ -1,11 +1,11 @@
-"""Dataclass models for station data and route connection details."""
+"""Dataclass model representing a railway station document."""
 
 from dataclasses import dataclass
 
 
 @dataclass
 class StationModel:
-    """Represents a station with coordinates and connected destination metadata."""
+    """Internal station model with outgoing weighted connections."""
 
     station_name: str
     latitude: float
