@@ -20,14 +20,18 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<RouteFinder />} />
-          <Route path="/alternatives" element={<AlternativeRoutes />} />
-          <Route path="/simulate" element={<Simulate />} />
-          <Route path="/visualization" element={<Visualization />} />
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+          <Navbar />
+          <main className="p-4">
+            <Routes>
+              <Route path="/" element={<RouteFinder />} />
+              <Route path="/alternatives" element={<AlternativeRoutes />} />
+              <Route path="/simulate" element={<Simulate />} />
+              <Route path="/visualization" element={<Visualization />} />
+              <Route path="/admin" element={<Admin />} />
+            </Routes>
+          </main>
+        </div>
       </BrowserRouter>
     </QueryClientProvider>
   );
