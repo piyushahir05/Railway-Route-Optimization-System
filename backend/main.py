@@ -42,11 +42,12 @@ cors_origins = [
     "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
+    "https://railway-route-optimization-system-cyan.vercel.app",
 ]
 
 # Add production frontend URL from environment
-frontend_url = os.getenv("FRONTEND_URL")
-if frontend_url:
+frontend_url = os.getenv("FRONTEND_URL", "").rstrip("/")
+if frontend_url and frontend_url not in cors_origins:
     cors_origins.append(frontend_url)
 
 app.add_middleware(

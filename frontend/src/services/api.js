@@ -2,7 +2,11 @@
  * HTTP API client for the Railway Route Optimization frontend.
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/+$/, "")
+
+if (!import.meta.env.VITE_API_BASE_URL) {
+  console.warn("[api] VITE_API_BASE_URL is not set — falling back to http://localhost:8000")
+}
 
 /**
  * Makes a JSON HTTP request and normalizes API error handling.
