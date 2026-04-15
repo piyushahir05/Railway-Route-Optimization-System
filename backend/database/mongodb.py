@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -9,7 +10,10 @@ from pymongo import MongoClient
 
 load_dotenv()
 
-MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGODB_URI = os.getenv("MONGODB_URI")
+
+if not MONGODB_URI:
+    raise ValueError("MONGODB_URI environment variable is not set. Check your .env file or Render environment variables.")
 
 client = None
 db = None
@@ -23,14 +27,13 @@ def _connect():
         client = MongoClient(
             MONGODB_URI,
             serverSelectionTimeoutMS=5000,
-            tls=True
         )
         client.admin.command("ping")
         db = client["railway_network"]
+        logging.info("MongoDB connection successful")
     except Exception as exc:
-        import logging
         logging.error(f"MongoDB connection failed: {exc}")
-        raise RuntimeError("Failed to connect to MongoDB. Check MONGODB_URI and server status.") from exc
+        logging.error("Continuing without MongoDB. Graph engine will work, but admin operations will fail.")
 
 
 def get_db():
