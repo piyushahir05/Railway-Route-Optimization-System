@@ -17,28 +17,42 @@ from routes.stations_api import stations_router
 async def lifespan(app: FastAPI):
     """Handle startup and shutdown lifecycle operations."""
     from graph_engine.graph_state import load_graph
+    from database.mongodb import _connect, client
+
+    # Initialize MongoDB connection
+    _connect()
+    print("MongoDB connection established")
 
     load_graph()
     print("In-memory graph loaded")
     yield
-    from database.mongodb import client
 
-    client.close()
-    print("MongoDB connection closed")
+    if client is not None:
+        client.close()
+        print("MongoDB connection closed")
 
 
 app = FastAPI(title="Railway Route Optimization API", version="1.0.0", lifespan=lifespan)
 
-# Restrict this to your deployed frontend domain in production.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Configure CORS with environment-aware origins
+import os
+
+cors_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
     "https://your-frontend.vercel.app",
-    ],
+]
+
+# Add production frontend URL from environment
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    cors_origins.append(frontend_url)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,6 +85,9 @@ async def health():
 
 
 if __name__ == "__main__":
+    import os
     import uvicorn
 
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    reload = os.getenv("ENVIRONMENT", "development") == "development"
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=reload)

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: railway-backend
+    runtime: python
+    pythonVersion: 3.11
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGODB_URI
+        scope: all
+      - key: ENVIRONMENT
+        value: production
+        scope: all
+      - key: PORT
+        value: 8000
+        scope: all
