@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
-from database.mongodb import db
+from database.mongodb import get_db, _connect
 from schemas.station_schema import StationSchema
 
 
@@ -57,7 +57,7 @@ def build_station_data() -> list[dict]:
 
 def main() -> None:
     """Drop and seed stations collection with validated sample records."""
-    stations_col = db["stations"]
+    stations_col = get_db()["stations"]
     count = stations_col.count_documents({})
     if count > 0:
         confirm = input(f"{count} stations already exist. Re-seed? (yes/no): ")
@@ -84,7 +84,7 @@ def main() -> None:
 
 def verify() -> None:
     """Print inserted document count and station names for quick verification."""
-    stations_col = db["stations"]
+    stations_col = get_db()["stations"]
     count = stations_col.count_documents({})
     print(f"Total stations in collection: {count}")
     for doc in stations_col.find({}, {"station_name": 1, "_id": 0}).sort("station_name", 1):
@@ -92,5 +92,6 @@ def verify() -> None:
 
 
 if __name__ == "__main__":
+    _connect()
     main()
     verify()

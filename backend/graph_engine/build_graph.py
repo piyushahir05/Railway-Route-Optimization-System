@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from database.mongodb import db
+from database.mongodb import get_db
 
 
 def build_graph(closed_stations: list[str] = None, use_congestion: bool = False) -> dict:
@@ -20,7 +20,7 @@ def build_graph(closed_stations: list[str] = None, use_congestion: bool = False)
     graph: dict = {}
 
     try:
-        stations = db["stations"].find({})
+        stations = get_db()["stations"].find({})
 
         for station in stations:
             station_name = station.get("station_name")
@@ -82,7 +82,7 @@ def get_station_coordinates() -> dict:
     coordinates: dict = {}
 
     try:
-        for station in db["stations"].find(
+        for station in get_db()["stations"].find(
             {}, {"station_name": 1, "latitude": 1, "longitude": 1}
         ):
             name = station.get("station_name")

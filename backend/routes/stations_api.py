@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
-from database.mongodb import db
+from database.mongodb import get_db
 from graph_engine.graph_state import get_graph, get_graph_state
 
 stations_router = APIRouter(prefix="/stations", tags=["Stations"])
@@ -20,7 +20,7 @@ def serialize_station(doc: dict) -> dict:
 async def get_stations():
     """Return alphabetically sorted station names from MongoDB."""
     try:
-        cursor = db["stations"].find({}, {"station_name": 1, "_id": 0})
+        cursor = get_db()["stations"].find({}, {"station_name": 1, "_id": 0})
         names = sorted([doc["station_name"] for doc in cursor if doc.get("station_name")])
         return {"stations": names}
     except Exception as exc:
@@ -31,7 +31,7 @@ async def get_stations():
 async def get_station_details():
     """Return full station documents without MongoDB object ids."""
     try:
-        stations = [serialize_station(doc) for doc in db["stations"].find({})]
+        stations = [serialize_station(doc) for doc in get_db()["stations"].find({})]
         return {"stations": stations}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database error: {exc}") from exc

@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from database.mongodb import db
+from database.mongodb import get_db
 from graph_engine.graph_state import get_graph, reload_graph, set_closed_stations, set_congestion
 from schemas.station_schema import StationSchema, StationUpdateSchema
 
@@ -29,10 +29,10 @@ class StationCloseBody(BaseModel):
 @admin_router.post("/station/add")
 async def add_station(body: StationSchema):
     """Create a new station document and refresh the in-memory graph."""
-    existing = db["stations"].find_one({"station_name": body.station_name})
+    existing = get_db()["stations"].find_one({"station_name": body.station_name})
     if existing:
         raise HTTPException(status_code=409, detail=f"Station already exists: {body.station_name}")
-    db["stations"].insert_one(body.model_dump())
+    get_db()["stations"].insert_one(body.model_dump())
     reload_graph()
     return {"message": f"Station {body.station_name} added", "station": body.station_name}
 
@@ -40,12 +40,12 @@ async def add_station(body: StationSchema):
 @admin_router.delete("/station/remove")
 async def remove_station(station_name: str):
     """Delete a station and remove all inbound references to it."""
-    existing = db["stations"].find_one({"station_name": station_name})
+    existing = get_db()["stations"].find_one({"station_name": station_name})
     if not existing:
         raise HTTPException(status_code=404, detail=f"Station not found: {station_name}")
 
-    db["stations"].delete_one({"station_name": station_name})
-    db["stations"].update_many(
+    get_db()["stations"].delete_one({"station_name": station_name})
+    get_db()["stations"].update_many(
         {"connections.destination": station_name},
         {"$pull": {"connections": {"destination": station_name}}},
     )
@@ -56,11 +56,11 @@ async def remove_station(station_name: str):
 @admin_router.patch("/connection/update")
 async def update_connection(body: StationUpdateSchema):
     """Patch one source->destination connection with provided non-empty fields."""
-    source_station = db["stations"].find_one({"station_name": body.source})
+    source_station = get_db()["stations"].find_one({"station_name": body.source})
     if not source_station:
         raise HTTPException(status_code=404, detail=f"Source station not found: {body.source}")
 
-    target_connection = db["stations"].find_one(
+    target_connection = get_db()["stations"].find_one(
         {"station_name": body.source, "connections.destination": body.destination}
     )
     if not target_connection:
@@ -79,7 +79,7 @@ async def update_connection(body: StationUpdateSchema):
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    db["stations"].update_one(
+    get_db()["stations"].update_one(
         {"station_name": body.source, "connections.destination": body.destination},
         {"$set": update_fields},
     )
